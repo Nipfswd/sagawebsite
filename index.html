@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-<title>Half-3D Genshin-Like Mini Demo</title>
+<title>Half-3D Genshin-Like Mini Demo with Restart</title>
 <style>
   body, html {
     margin: 0; padding: 0; overflow: hidden; background: #222;
@@ -56,6 +56,21 @@
   #btn-attack:active {
     background: rgba(255, 0, 0, 0.9);
   }
+  #restart-btn {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #00aaff;
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-size: 28px;
+    padding: 20px 40px;
+    cursor: pointer;
+    display: none;
+    z-index: 20;
+  }
 </style>
 </head>
 <body>
@@ -67,11 +82,13 @@
 </div>
 
 <button id="btn-attack">⚔️</button>
+<button id="restart-btn">Restart</button>
 
 <script>
 (() => {
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
+  const restartBtn = document.getElementById('restart-btn');
 
   function resize() {
     canvas.width = window.innerWidth;
@@ -80,10 +97,7 @@
   window.addEventListener('resize', resize);
   resize();
 
-  // Convert from top-down x,y,z to isometric x,y coords
   function isoProject(x, y, z=0) {
-    // Isometric projection formulas:
-    // You can tweak these for perspective
     return {
       x: (x - y) * Math.sqrt(3)/2,
       y: (x + y)/2 - z
@@ -94,7 +108,7 @@
   const player = {
     x: 0,
     y: 0,
-    z: 0, // height for 3D effect
+    z: 0,
     size: 50,
     color: '#00aaff',
     speed: 3,
@@ -102,7 +116,7 @@
     isAttacking: false,
     attackDuration: 300,
     attackTimer: 0,
-    facing: 0 // angle radians, for rotation effect
+    facing: 0
   };
 
   // Enemy constructor
@@ -117,11 +131,14 @@
     this.lastDamageTime = 0;
   }
 
-  const enemies = [
+  // Store initial enemies for reset
+  const initialEnemies = [
     new Enemy(5, 5),
     new Enemy(-5, 3),
     new Enemy(2, -4)
   ];
+
+  let enemies = initialEnemies.map(e => Object.assign(Object.create(Object.getPrototypeOf(e)), e));
 
   // Controls
   const joystick = document.getElementById('joystick');
@@ -138,13 +155,11 @@
     if(distance < 10) return;
     const angle = Math.atan2(dy, dx);
 
-    // Directions
     if(angle < -Math.PI/4 && angle > -3*Math.PI/4) keys.w = true;
     if(angle > Math.PI/4 && angle < 3*Math.PI/4) keys.s = true;
     if(angle > 3*Math.PI/4 || angle < -3*Math.PI/4) keys.a = true;
     if(angle > -Math.PI/4 && angle < Math.PI/4) keys.d = true;
 
-    // Update facing angle to joystick direction
     player.facing = angle;
   }
 
@@ -182,7 +197,6 @@
     attackBtn.style.background = 'rgba(255, 0, 0, 0.6)';
   });
 
-  // Check distance for attack
   function isNear(obj1, obj2, range) {
     const dx = obj1.x - obj2.x;
     const dy = obj1.y - obj2.y;
@@ -190,7 +204,6 @@
     return Math.sqrt(dx*dx + dy*dy + dz*dz) < range;
   }
 
-  // Draw diamond shape for isometric square
   function drawDiamond(x, y, size, color, shadow=false) {
     ctx.save();
     ctx.translate(x, y);
@@ -215,13 +228,11 @@
     ctx.restore();
   }
 
-  // Draw player with facing rotation
   function drawPlayer() {
     const pos = isoProject(player.x, player.y, player.z);
     const screenX = canvas.width/2 + pos.x;
-    const screenY = canvas.height/2 + pos.y - player.size/4; // lift to simulate height
+    const screenY = canvas.height/2 + pos.y - player.size/4;
 
-    // Shadow
     drawDiamond(screenX + 10, screenY + 10, player.size * 0.6, 'rgba(0,0,0,0.3)', true);
 
     ctx.save();
@@ -229,7 +240,6 @@
     ctx.rotate(player.facing);
     ctx.fillStyle = player.isAttacking ? player.attackColor : player.color;
 
-    // Player is a rotated diamond
     ctx.beginPath();
     ctx.moveTo(0, player.size/2);
     ctx.lineTo(player.size/2, 0);
@@ -238,24 +248,21 @@
     ctx.closePath();
     ctx.fill();
 
-    // Draw a small "face" marker on the front
     ctx.fillStyle = '#fff';
     ctx.beginPath();
-    ctx.arc(0, -player.size/3, player.size/10, 0, Math.PI * 2);
+    ctx.arc(0, 0, player.size/6, 0, Math.PI*2);
     ctx.fill();
 
     ctx.restore();
   }
 
-  // Draw enemies with health bars
   function drawEnemy(enemy) {
     if(!enemy.alive) return;
-
     const pos = isoProject(enemy.x, enemy.y, enemy.z);
     const screenX = canvas.width/2 + pos.x;
     const screenY = canvas.height/2 + pos.y - enemy.size/4;
 
-    drawDiamond(screenX + 8, screenY + 8, enemy.size * 0.6, 'rgba(0,0,0,0.3)', true);
+    drawDiamond(screenX + 10, screenY + 10, enemy.size * 0.6, 'rgba(0,0,0,0.3)', true);
 
     ctx.save();
     ctx.translate(screenX, screenY);
@@ -278,10 +285,23 @@
     ctx.restore();
   }
 
-  // Attack cooldown for enemies (ms)
   const enemyDamageCooldown = 500;
 
-  // Game loop
+  // Reset game state
+  function resetGame() {
+    player.x = 0;
+    player.y = 0;
+    player.z = 0;
+    player.isAttacking = false;
+    player.color = '#00aaff';
+    enemies = initialEnemies.map(e => Object.assign(Object.create(Object.getPrototypeOf(e)), e));
+    restartBtn.style.display = 'none';
+  }
+
+  restartBtn.addEventListener('click', () => {
+    resetGame();
+  });
+
   function gameLoop(timestamp) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -299,8 +319,8 @@
 
     if(player.isAttacking) {
       if(timestamp - player.attackTimer < player.attackDuration) {
+        // attacking state
         player.color = player.attackColor;
-        // Damage enemies near player with cooldown
         enemies.forEach(enemy => {
           if(enemy.alive && isNear(player, enemy, (player.size + enemy.size)/2 + 10)) {
             if(timestamp - enemy.lastDamageTime > enemyDamageCooldown) {
@@ -318,15 +338,18 @@
       }
     }
 
-    // Draw enemies
-    enemies.forEach(drawEnemy);
+    // Check if all enemies dead -> show restart button
+    if(enemies.every(e => !e.alive)) {
+      restartBtn.style.display = 'block';
+    }
 
-    // Draw player on top
+    enemies.forEach(drawEnemy);
     drawPlayer();
 
     requestAnimationFrame(gameLoop);
   }
 
+  resetGame();
   requestAnimationFrame(gameLoop);
 
 })();
