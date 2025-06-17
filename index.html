@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-<title>Mobile Friendly Genshin-Like Mini Demo with Enemies</title>
+<title>Mobile Friendly Genshin-Like Mini Demo with Enemy Attacks</title>
 <style>
   body, html {
     margin: 0; padding: 0; overflow: hidden; background: #222;
     font-family: Arial, sans-serif;
-    -webkit-user-select: none; /* prevent selection on mobile */
-    user-select: none;          /* standard property */
+    -webkit-user-select: none;
+    user-select: none;
     -webkit-touch-callout: none;
   }
   canvas {
@@ -89,7 +89,10 @@
     attackColor: '#ff5500',
     isAttacking: false,
     attackDuration: 300,
-    attackTimer: 0
+    attackTimer: 0,
+    maxHealth: 10,
+    health: 10,
+    alive: true,
   };
 
   const joystick = document.getElementById('joystick');
@@ -100,12 +103,14 @@
   let dragging = false;
   let keys = { w: false, a: false, s: false, d: false, attack: false };
 
-  // Enemy stuff
   const enemySize = 40;
   const enemySpeed = 1.2;
   const enemyRespawnTime = 3000; // 3 seconds
+  const enemyMaxHealth = 3;
+  const enemyAttackDamage = 1;
+  const enemyAttackCooldown = 1000; // 1 second between attacks
+  const enemyAttackRange = 60; // range where enemy attacks player
 
-  // Create some enemies at random positions
   const enemies = [];
   const enemyCount = 5;
 
@@ -124,8 +129,10 @@
       color: 'red',
       alive: true,
       respawnTimer: 0,
+      health: enemyMaxHealth,
       dirX: Math.random() < 0.5 ? -1 : 1,
       dirY: Math.random() < 0.5 ? -1 : 1,
+      lastAttackTime: 0
     });
   }
 
@@ -183,14 +190,31 @@
     attackBtn.style.background = 'rgba(255, 0, 0, 0.6)';
   });
 
-  // Check distance between player and enemy
   function isNear(a, b, distance) {
     const dx = a.x - b.x;
     const dy = a.y - b.y;
     return Math.sqrt(dx*dx + dy*dy) < distance;
   }
 
+  function drawHealthBar(x, y, width, height, current, max, color) {
+    ctx.fillStyle = 'black';
+    ctx.fillRect(x, y, width, height);
+    ctx.fillStyle = color;
+    const healthWidth = (current / max) * width;
+    ctx.fillRect(x, y, healthWidth, height);
+  }
+
   function gameLoop(timestamp) {
+    if(!player.alive) {
+      // Game over screen
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'white';
+      ctx.font = '48px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2);
+      return; // stop game loop
+    }
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Move player
@@ -203,15 +227,17 @@
     player.x = Math.max(player.size/2, Math.min(canvas.width - player.size/2, player.x));
     player.y = Math.max(player.size/2, Math.min(canvas.height - player.size/2, player.y));
 
-    // Handle attack
+    // Handle player attack
     if(keys.attack && !player.isAttacking) {
       player.isAttacking = true;
       player.attackTimer = timestamp;
-      // Check if any enemy is near enough to be hit
       enemies.forEach(enemy => {
         if(enemy.alive && isNear(player, enemy, (player.size + enemy.size) / 2 + 10)) {
-          enemy.alive = false;
-          enemy.respawnTimer = timestamp + enemyRespawnTime;
+          enemy.health--;
+          if(enemy.health <= 0) {
+            enemy.alive = false;
+            enemy.respawnTimer = timestamp + enemyRespawnTime;
+          }
         }
       });
     }
@@ -225,25 +251,24 @@
       }
     }
 
-    // Draw player
-    ctx.fillStyle = player.color;
-    ctx.fillRect(player.x - player.size/2, player.y - player.size/2, player.size, player.size);
-
     // Update and draw enemies
     enemies.forEach(enemy => {
       if(!enemy.alive) {
         // Check respawn
         if(timestamp > enemy.respawnTimer) {
           enemy.alive = true;
-          // Respawn at random position
+          enemy.health = enemyMaxHealth;
           let pos = randomPosition();
           enemy.x = pos.x;
           enemy.y = pos.y;
+          enemy.dirX = Math.random() < 0.5 ? -1 : 1;
+          enemy.dirY = Math.random() < 0.5 ? -1 : 1;
+          enemy.lastAttackTime = 0;
         }
-        return; // skip drawing if dead
+        return;
       }
 
-      // Simple random movement
+      // Move enemy slowly
       enemy.x += enemy.dirX * enemySpeed;
       enemy.y += enemy.dirY * enemySpeed;
 
@@ -251,10 +276,31 @@
       if(enemy.x < enemy.size/2 || enemy.x > canvas.width - enemy.size/2) enemy.dirX *= -1;
       if(enemy.y < enemy.size/2 || enemy.y > canvas.height - enemy.size/2) enemy.dirY *= -1;
 
+      // Enemy attacks player if near and cooldown passed
+      if(isNear(enemy, player, enemyAttackRange)) {
+        if(timestamp - enemy.lastAttackTime > enemyAttackCooldown) {
+          player.health -= enemyAttackDamage;
+          enemy.lastAttackTime = timestamp;
+          if(player.health <= 0) {
+            player.alive = false;
+          }
+        }
+      }
+
       // Draw enemy
       ctx.fillStyle = enemy.color;
       ctx.fillRect(enemy.x - enemy.size/2, enemy.y - enemy.size/2, enemy.size, enemy.size);
+
+      // Draw enemy health bar above enemy
+      drawHealthBar(enemy.x - enemy.size/2, enemy.y - enemy.size/2 - 10, enemy.size, 6, enemy.health, enemyMaxHealth, 'lime');
     });
+
+    // Draw player
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.x - player.size/2, player.y - player.size/2, player.size, player.size);
+
+    // Draw player health bar top left
+    drawHealthBar(20, 20, 200, 20, player.health, player.maxHealth, '#00ff00');
 
     requestAnimationFrame(gameLoop);
   }
