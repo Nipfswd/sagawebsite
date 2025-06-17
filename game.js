@@ -1,4 +1,10 @@
+<<<<<<< HEAD
+import { Player } from './player.js';
+import { Enemy } from './enemy.js';
+import { setupInput } from './input.js';
+=======
 // game.js
+>>>>>>> origin/main
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -9,6 +15,37 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+<<<<<<< HEAD
+const keys = { w: false, a: false, s: false, d: false, attack: false };
+setupInput(keys);
+
+const player = new Player(canvas);
+const enemies = [ new Enemy(canvas), new Enemy(canvas), new Enemy(canvas) ];
+
+let lastDamageTime = 0;
+function gameLoop(timestamp) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  player.move(keys);
+  player.updateAttack(timestamp, keys);
+  player.draw(ctx);
+
+  enemies.forEach(enemy => {
+    enemy.moveTowards(player);
+    enemy.draw(ctx);
+
+    const dx = enemy.x - player.x;
+    const dy = enemy.y - player.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist < (enemy.size + player.size) / 2) {
+      if (player.isAttacking) {
+        enemy.takeDamage();
+      } else if (timestamp - lastDamageTime > 500) {
+        player.health -= 10;
+        lastDamageTime = timestamp;
+        if (player.health <= 0) {
+          alert("Game Over");
+          location.reload();
+=======
 const background = new Background(80); // <-- Use the background.js class
 
 // Player
@@ -192,11 +229,17 @@ function gameLoop(timestamp) {
           if (player.health <= 0) {
             gameOver = true;
           }
+>>>>>>> origin/main
         }
       }
     }
   });
 
+<<<<<<< HEAD
+  requestAnimationFrame(gameLoop);
+}
+
+=======
   // Draw health bar
   ctx.fillStyle = 'red';
   ctx.fillRect(20, 20, player.health * 2, 20);
@@ -216,4 +259,5 @@ canvas.addEventListener('click', () => {
   }
 });
 
+>>>>>>> origin/main
 requestAnimationFrame(gameLoop);

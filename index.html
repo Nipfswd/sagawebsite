@@ -1,6 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<<<<<<< HEAD
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<title>Mobile Friendly Genshin-Like Mini Demo</title>
+<style>
+  body, html {
+    margin: 0; padding: 0; overflow: hidden; background: #222;
+    font-family: Arial, sans-serif;
+    -webkit-user-select: none; /* prevent selection on mobile */
+    user-select: none;          /* standard property */
+    -webkit-touch-callout: none;
+  }
+  canvas {
+    display: block;
+    background: #555;
+  }
+  #joystick {
+    position: fixed; 
+    bottom: 30px; 
+    left: 30px; 
+    width: 150px; 
+    height: 150px; 
+    background: rgba(100, 100, 100, 0.3); 
+    border-radius: 50%; 
+    touch-action: none;
+    user-select: none;
+    z-index: 10;
+  }
+  #joystick-knob {
+    position: absolute; 
+    top: 50%; 
+    left: 50%; 
+    width: 60px; 
+    height: 60px; 
+    background: rgba(200, 200, 200, 0.7); 
+    border-radius: 50%; 
+    transform: translate(-50%, -50%);
+    transition: background 0.3s;
+  }
+  #btn-attack {
+    position: fixed; 
+    bottom: 40px; 
+    right: 40px; 
+    width: 80px; 
+    height: 80px; 
+    border-radius: 50%; 
+    background: rgba(255, 0, 0, 0.6); 
+    border: none; 
+    font-size: 32px; 
+    color: white;
+    user-select: none;
+    z-index: 10;
+  }
+  #btn-attack:active {
+    background: rgba(255, 0, 0, 0.9);
+  }
+</style>
+=======
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
   <title>Genshin-Like Mini Demo</title>
@@ -23,10 +81,161 @@
       border-radius: 50%; transform: translate(-50%, -50%);
     }
   </style>
+>>>>>>> origin/main
 </head>
 <body>
 
 <canvas id="gameCanvas"></canvas>
+<<<<<<< HEAD
+
+<div id="joystick">
+  <div id="joystick-knob"></div>
+</div>
+
+<button id="btn-attack">⚔️</button>
+
+<script>
+(() => {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Resize canvas to full window
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // Player object
+  const player = {
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    size: 50,
+    color: '#00aaff',
+    speed: 5,
+    attackColor: '#ff5500',
+    isAttacking: false,
+    attackDuration: 300, // milliseconds
+    attackTimer: 0
+  };
+
+  // Controls
+  const joystick = document.getElementById('joystick');
+  const knob = document.getElementById('joystick-knob');
+  const attackBtn = document.getElementById('btn-attack');
+
+  const maxDistance = 50; // joystick radius
+  let dragging = false;
+  let keys = { w: false, a: false, s: false, d: false, attack: false };
+
+  // Joystick functions
+  function updateKeys(dx, dy) {
+    keys.w = keys.a = keys.s = keys.d = false;
+
+    const distance = Math.sqrt(dx*dx + dy*dy);
+    if(distance < 10) return; // dead zone
+
+    const angle = Math.atan2(dy, dx);
+
+    // Up
+    if(angle < -Math.PI/4 && angle > -3*Math.PI/4) keys.w = true;
+    // Down
+    if(angle > Math.PI/4 && angle < 3*Math.PI/4) keys.s = true;
+    // Left
+    if(angle > 3*Math.PI/4 || angle < -3*Math.PI/4) keys.a = true;
+    // Right
+    if(angle > -Math.PI/4 && angle < Math.PI/4) keys.d = true;
+
+    // Support diagonal movement by combining keys
+    if(angle > -Math.PI/4 && angle < Math.PI/4) keys.d = true;
+    if(angle < -Math.PI/4 && angle > -3*Math.PI/4) keys.w = true;
+    if(angle > Math.PI/4 && angle < 3*Math.PI/4) keys.s = true;
+    if(angle > 3*Math.PI/4 || angle < -3*Math.PI/4) keys.a = true;
+  }
+
+  joystick.addEventListener('touchstart', e => {
+    e.preventDefault();
+    dragging = true;
+  });
+
+  joystick.addEventListener('touchmove', e => {
+    if(!dragging) return;
+    e.preventDefault();
+    const touch = e.targetTouches[0];
+    let rect = joystick.getBoundingClientRect();
+    let dx = touch.clientX - (rect.left + rect.width/2);
+    let dy = touch.clientY - (rect.top + rect.height/2);
+
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if(dist > maxDistance) {
+      dx = dx / dist * maxDistance;
+      dy = dy / dist * maxDistance;
+    }
+
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    updateKeys(dx, dy);
+  });
+
+  joystick.addEventListener('touchend', e => {
+    e.preventDefault();
+    dragging = false;
+    knob.style.transform = 'translate(-50%, -50%)';
+    keys.w = keys.a = keys.s = keys.d = false;
+  });
+
+  attackBtn.addEventListener('touchstart', e => {
+    e.preventDefault();
+    keys.attack = true;
+    attackBtn.style.background = 'rgba(255, 0, 0, 0.9)';
+  });
+  attackBtn.addEventListener('touchend', e => {
+    e.preventDefault();
+    keys.attack = false;
+    attackBtn.style.background = 'rgba(255, 0, 0, 0.6)';
+  });
+
+  // Game loop
+  function gameLoop(timestamp) {
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Move player
+    if(keys.w) player.y -= player.speed;
+    if(keys.s) player.y += player.speed;
+    if(keys.a) player.x -= player.speed;
+    if(keys.d) player.x += player.speed;
+
+    // Keep player inside canvas
+    player.x = Math.max(player.size/2, Math.min(canvas.width - player.size/2, player.x));
+    player.y = Math.max(player.size/2, Math.min(canvas.height - player.size/2, player.y));
+
+    // Handle attack
+    if(keys.attack && !player.isAttacking) {
+      player.isAttacking = true;
+      player.attackTimer = timestamp;
+    }
+
+    if(player.isAttacking) {
+      if(timestamp - player.attackTimer < player.attackDuration) {
+        player.color = player.attackColor;
+      } else {
+        player.isAttacking = false;
+        player.color = '#00aaff';
+      }
+    }
+
+    // Draw player (square)
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.x - player.size/2, player.y - player.size/2, player.size, player.size);
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  requestAnimationFrame(gameLoop);
+
+})();
+=======
 <div id="joystick"><div id="joystick-knob"></div></div>
 <button id="btn-attack">⚔️</button>
 <button id="btn-restart">Restart</button>
@@ -42,6 +251,7 @@
 </body>
 </html>
 
+>>>>>>> origin/main
 </script>
 
 </body>
